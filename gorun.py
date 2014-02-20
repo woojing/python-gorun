@@ -132,7 +132,7 @@ def start(actual_directories):
     except KeyboardInterrupt:
         pass
     finally:
-        observer.unschedul_all()
+        observer.unschedule_all()
         observer.stop()
         observer.join()
     
