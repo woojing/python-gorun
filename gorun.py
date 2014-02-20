@@ -105,7 +105,7 @@ class PTmp(FileSystemEventHandler):
                     print "Command: ",
                     print command
                 p = Popen(command, shell=True)
-                sts = os.waitpid(p.pid, 0)
+                p.wait()
             lock.release()
 
         command_thread = Thread(target=execute_command, args=[event, self.lock])
