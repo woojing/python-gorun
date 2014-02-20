@@ -13,6 +13,7 @@ import os
 
 from subprocess import Popen
 from threading import Lock, Thread
+from time import sleep
 
 __version__='1.6'
 
@@ -22,15 +23,16 @@ class SettingsClass(object):
 settings = SettingsClass()
 
 try:
-    from pyinotify import WatchManager, Notifier, ThreadedNotifier, ProcessEvent, EventsCodes
+    from watchdog.observers import Observer
+    from watchdog.events import FileSystemEventHandler
 except ImportError:
-    print "pyinotify not installed. Try: easy_install pyinotify"
+    print "watchdog not installed. Try: easy_install watchdog"
     raise
 
 
 def _find_command(path):
     # path is a file
-    assert os.path.isfile(path)
+    #assert os.path.isfile(path)
     # in dictionary lookup have keys as files and directories.
     # if this path exists in there, it's a simple match
     try:
@@ -63,25 +65,25 @@ def _ignore_file(path):
     if not os.path.isfile(path):
         return True
 
-class PTmp(ProcessEvent):
+class PTmp(FileSystemEventHandler):
 
     def __init__(self):
         super(PTmp, self).__init__()
         self.lock = Lock()
 
-    def process_IN_CREATE(self, event):
-        if os.path.basename(event.pathname).startswith('.#'):
-            # backup file
-            return
-        print "Creating:", event.pathname
-        command = _find_command(event.pathname)
+    #def on_created(self, event):
+    #    if os.path.basename(event.src_path).startswith('.#'):
+    #        # backup file
+    #        return
+    #    print "Creating:", event.src_path
+    #    command = _find_command(event.src_path)
 
     #def process_IN_DELETE(self, event):
-    #    print "Removing:", event.pathname
-    #    command = _find_command(event.pathname)
+    #    print "Removing:", event.src_path
+    #    command = _find_command(event.src_path)
 
-    def process_IN_MODIFY(self, event):
-        if _ignore_file(event.pathname):
+    def on_modified(self, event):
+        if _ignore_file(event.src_path):
             return
 
         def execute_command(event, lock):
@@ -96,8 +98,8 @@ class PTmp(ProcessEvent):
             if not lock.acquire(block):
                 # in this case we just want to not execute the command
                 return
-            print "Modifying:", event.pathname
-            command = _find_command(event.pathname)
+            print "Modifying:", event.src_path
+            command = _find_command(event.src_path)
             if command:
                 if settings.VERBOSE:
                     print "Command: ",
@@ -112,23 +114,27 @@ class PTmp(ProcessEvent):
 
 def start(actual_directories):
     
-    wm = WatchManager()
-    flags = EventsCodes.ALL_FLAGS
-    mask = flags['IN_MODIFY'] #| flags['IN_CREATE']
+    observer = Observer()
+
         
     p = PTmp()
-    notifier = Notifier(wm, p)
     
     for actual_directory in actual_directories:
         print "DIRECTORY", actual_directory
-        wdd = wm.add_watch(actual_directory, mask, rec=True)
+        observer.schedule(p, path=actual_directory, recursive=True)
     
     # notifier = Notifier(wm, p, timeout=10)
+    observer.start()
     try:
         print "Waiting for stuff to happen..."
-        notifier.loop()
+        while True:
+            sleep(1)
     except KeyboardInterrupt:
         pass
+    finally:
+        observer.unschedul_all()
+        observer.stop()
+        observer.join()
     
     return 0
 
