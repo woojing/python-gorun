@@ -71,12 +71,12 @@ class PTmp(FileSystemEventHandler):
         super(PTmp, self).__init__()
         self.lock = Lock()
 
-    #def on_created(self, event):
-    #    if os.path.basename(event.src_path).startswith('.#'):
-    #        # backup file
-    #        return
-    #    print "Creating:", event.src_path
-    #    command = _find_command(event.src_path)
+    def __on_created(self, event):
+        if os.path.basename(event.src_path).startswith('.#'):
+            # backup file
+            return
+        print "Creating:", event.src_path
+        command = _find_command(event.src_path)
 
     #def process_IN_DELETE(self, event):
     #    print "Removing:", event.src_path
@@ -111,6 +111,8 @@ class PTmp(FileSystemEventHandler):
         command_thread = Thread(target=execute_command, args=[event, self.lock])
         command_thread.start()
 
+    on_created = on_modified
+
 
 def start(actual_directories):
     
@@ -122,8 +124,6 @@ def start(actual_directories):
     for actual_directory in actual_directories:
         print "DIRECTORY", actual_directory
         observer.schedule(p, path=actual_directory, recursive=True)
-    
-    # notifier = Notifier(wm, p, timeout=10)
     observer.start()
     try:
         print "Waiting for stuff to happen..."
